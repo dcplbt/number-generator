@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Number Generator</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        text-align: center;
+        background-color: #f0f2f5;
+      }
+      
+      .container {
+        background-color: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin-top: 40px;
+      }
+      
+      h1 {
+        color: #1a73e8;
+        margin-bottom: 30px;
+      }
+      
+      .number-display {
+        font-size: 72px;
+        margin: 30px 0;
+        color: #1a73e8;
+        font-weight: bold;
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .button-container {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 20px;
+      }
+      
+      .button {
+        background-color: #1a73e8;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+      
+      .button:hover {
+        background-color: #1557b0;
+        transform: translateY(-1px);
+      }
+      
+      .button:active {
+        transform: translateY(1px);
+      }
+      
+      .button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      
+      #message {
+        margin-top: 20px;
+        padding: 10px;
+        border-radius: 6px;
+        font-weight: 500;
+      }
+      
+      .error {
+        color: #d93025;
+        background-color: #fce8e6;
+      }
+      
+      .success {
+        color: #188038;
+        background-color: #e6f4ea;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Number Generator</h1>
+      <div class="number-display" id="numberDisplay">-</div>
+      <div class="button-container">
+        <button class="button" id="getNumberBtn" disabled>Get Number</button>
+      </div>
+      <div id="message"></div>
+    </div>
+
+    <script>
+      const numberDisplay = document.getElementById('numberDisplay')
+      const getNumberBtn = document.getElementById('getNumberBtn')
+      const messageDiv = document.getElementById('message')
+      
+      function showMessage(text, type) {
+        messageDiv.textContent = text
+        messageDiv.className = type
+        if (type !== 'error') {
+          setTimeout(() => {
+            messageDiv.textContent = ''
+            messageDiv.className = ''
+          }, 3000)
+        }
+      }
+      
+      // Check if user has already received a number
+      function hasReceivedNumber() {
+        return localStorage.getItem('receivedNumber') === 'true'
+      }
+      
+      // Check number availability and user status on page load
+      async function checkAvailability() {
+        // Start with button disabled
+        getNumberBtn.disabled = true
+      
+        // First check if user already has a number
+        if (hasReceivedNumber()) {
+          const storedNumber = localStorage.getItem('numberValue')
+          if (storedNumber) {
+            numberDisplay.textContent = storedNumber
+          }
+          showMessage('You have already received a number', 'error')
+          return
+        }
+      
+        try {
+          const response = await fetch('/check_availability')
+          const data = await response.json()
+      
+          if (!data.available) {
+            showMessage('All numbers have been assigned', 'error')
+          } else {
+            // Only enable the button if numbers are available AND user hasn't received one
+            getNumberBtn.disabled = false
+          }
+        } catch (error) {
+          console.error('Error checking availability:', error)
+          showMessage('Error checking availability', 'error')
+        }
+      }
+      
+      // Run availability check when page loads
+      document.addEventListener('DOMContentLoaded', checkAvailability)
+      
+      getNumberBtn.addEventListener('click', async () => {
+        if (hasReceivedNumber()) {
+          getNumberBtn.disabled = true
+          showMessage('You have already received a number', 'error')
+          return
+        }
+      
+        try {
+          getNumberBtn.disabled = true
+      
+          const response = await fetch('/get_number')
+          const data = await response.json()
+      
+          if (response.ok) {
+            numberDisplay.textContent = data.number
+            showMessage('Number generated successfully!', 'success')
+            localStorage.setItem('receivedNumber', 'true')
+            localStorage.setItem('numberValue', data.number)
+          } else {
+            showMessage(data.error, 'error')
+            // Only re-enable if not already received and numbers are still available
+            if (!hasReceivedNumber() && !data.error.includes('All numbers have been assigned')) {
+              getNumberBtn.disabled = false
+            }
+          }
+        } catch (error) {
+          showMessage('An error occurred. Please try again.', 'error')
+          // Only re-enable if not already received
+          if (!hasReceivedNumber()) {
+            getNumberBtn.disabled = false
+          }
+        }
+      })
+    </script>
+  </body>
+</html>
